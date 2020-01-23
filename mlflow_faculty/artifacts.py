@@ -21,6 +21,7 @@ from six.moves import urllib
 import faculty
 from faculty import datasets
 from mlflow.store.artifact_repo import ArtifactRepository
+import requests
 
 from mlflow_faculty.converters import faculty_object_to_mlflow_file_info
 
@@ -78,6 +79,18 @@ class FacultyDatasetsArtifactRepository(ArtifactRepository):
             artifact_path = "./"
         datasets_path = self._datasets_path(artifact_path)
         datasets.put(local_dir, datasets_path, self.project_id)
+
+        if os.path.exists(os.path.join(local_dir, "MLmodel")):
+            self._model_callback(datasets_path)
+
+    def _model_callback(self, datasets_path):
+        url = os.environ["LOG_MODEL_CALLBACK_URL"]
+        api_key = os.environ["LOG_MODEL_CALLBACK_API_KEY"]
+        endpoint = "{}/{}/process".format(
+            url.rstrip("/"), datasets_path.strip("/")
+        )
+        response = requests.post(endpoint, headers={"UserAPI-Key": api_key})
+        response.raise_for_status()
 
     def list_artifacts(self, path=None):
         if path is None:
